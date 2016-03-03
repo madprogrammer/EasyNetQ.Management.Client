@@ -8,6 +8,7 @@ using EasyNetQ.Management.Client.Serialization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using System.Text.RegularExpressions;
+using System.Security.Cryptography.X509Certificates;
 
 namespace EasyNetQ.Management.Client
 {
@@ -16,6 +17,7 @@ namespace EasyNetQ.Management.Client
         private readonly string hostUrl;
         private readonly string username;
         private readonly string password;
+        private readonly X509Certificate2Collection collection = new X509Certificate2Collection();
         private readonly int portNumber;
         public static readonly JsonSerializerSettings Settings;
 
@@ -60,10 +62,15 @@ namespace EasyNetQ.Management.Client
             string password,
             int portNumber = 15672,
             bool runningOnMono = false,
+            string certificatePfxPath = null,
+            string certificatePfxPassword = null,
             TimeSpan? timeout = null,
             Action<HttpWebRequest> configureRequest = null,
             bool ssl = false)
         {
+        	if (!string.IsNullOrEmpty(certificatePfxPath) && !string.IsNullOrEmpty(certificatePfxPassword))
+        		collection.Import(certificatePfxPath, certificatePfxPassword, X509KeyStorageFlags.PersistKeySet);
+
             var urlRegex = new Regex(@"^(http|https):\/\/.+\w$");
             Uri urlUri = null;
             if (string.IsNullOrEmpty(hostUrl))
@@ -703,6 +710,7 @@ namespace EasyNetQ.Management.Client
             request.Credentials = new NetworkCredential(username, password); 
             request.Timeout = request.ReadWriteTimeout = (int)timeout.TotalMilliseconds;
             request.KeepAlive = false; //default WebRequest.KeepAlive to false to resolve spurious 'the request was aborted: the request was canceled' exceptions
+            request.ClientCertificates = collection;
 
             configureRequest(request);
 
